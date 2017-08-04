@@ -52,6 +52,14 @@
     <Reference Include="System.Xml" />
   </ItemGroup>
   <ItemGroup>
+    <Compile Include="Assets.Designer.cs" />
+    <Compile Include="BitmapFont\BitmapFont.cs" />
+    <Compile Include="BitmapFont\FontChar.cs" />
+    <Compile Include="BitmapFont\FontCommon.cs" />
+    <Compile Include="BitmapFont\FontInfo.cs" />
+    <Compile Include="BitmapFont\FontKerning.cs" />
+    <Compile Include="BitmapFont\FontPages.cs" />
+    <Compile Include="E.cs" />
     <Compile Include="Fx.cs" />
     <Compile Include="MainWindow.cs" />
     <Compile Include="Program.cs" />
@@ -63,6 +71,13 @@
     <None Include="App.config" />
     <None Include="OpenTK.dll.config" />
     <None Include="packages.config" />
+    <None Include="Resources\dina.fnt" />
+  </ItemGroup>
+  <ItemGroup>
+    <Content Include="Resources\dina_0.png" />
+  </ItemGroup>
+  <ItemGroup>
+    <EmbeddedResource Include="Assets.resx" />
   </ItemGroup>
   <Import Project="$(MSBuildToolsPath)\Microsoft.CSharp.targets" />
 </Project>
