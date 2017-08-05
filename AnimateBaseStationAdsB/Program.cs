@@ -6,6 +6,7 @@ using System.Text;
 using System.Threading.Tasks;
 using BaseStationDotNet;
 using Newtonsoft.Json;
+using OpenTK;
 
 namespace AnimateBaseStationAdsB
 {
@@ -15,7 +16,7 @@ namespace AnimateBaseStationAdsB
         {
             //ExportPlaneKeyframes();
 
-            new MainWindow().Run(10);
+            new MainWindow().Run(19);
         }
 
         private static void ExportPlaneKeyframes()
@@ -54,7 +55,7 @@ namespace AnimateBaseStationAdsB
                             {
                                 var posMsg = (TransmissionMessage) m;
                                 messages.First(track => track.HexId == m.HexId)
-                                    .Keyframes.Add(new LatLon(posMsg.Latitude, posMsg.Longitude));
+                                    .Keyframes.Add(new LatLon(posMsg.Latitude, posMsg.Longitude, posMsg.Altitude));
                             }
                             break;
                         default:
@@ -83,24 +84,26 @@ namespace AnimateBaseStationAdsB
         public DateTime Start { get; set; }
         public DateTime End { get; set; }
         public List<LatLon> Keyframes { get; set; } = new List<LatLon>();
-        public Spline2D Spline { get; set; }
+        public Spline3D Spline { get; set; }
 
         public void CreateSpline()
         {
-            Spline = new Spline2D(Keyframes);
+            Spline = new Spline3D(Keyframes);
         }
 
     }
 
     public class LatLon
     {
-        public LatLon(double posMsgLatitude, double posMsgLongitude)
+        public LatLon(double posMsgLatitude, double posMsgLongitude, double posMsgAltitude)
         {
             Lat = posMsgLatitude;
             Lon = posMsgLongitude;
+            Alt = posMsgAltitude;
         }
 
         public double Lat { get; set; }
         public double Lon { get; set; }
+        public double Alt { get; set; }
     }
 }

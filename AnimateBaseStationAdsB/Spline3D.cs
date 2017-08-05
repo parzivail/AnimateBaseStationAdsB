@@ -7,10 +7,11 @@ using OpenTK;
 
 namespace AnimateBaseStationAdsB
 {
-    public class Spline2D
+    public class Spline3D
     {
         public Spline SplineX;
         public Spline SplineY;
+        public Spline SplineZ;
         /**
          * Total length tracing the points on the spline
          */
@@ -21,32 +22,23 @@ namespace AnimateBaseStationAdsB
          *
          * @param points
          */
-        public Spline2D(IReadOnlyList<LatLon> points)
+        public Spline3D(IReadOnlyList<LatLon> points)
         {
             var x = new double[points.Count];
             var y = new double[points.Count];
+            var z = new double[points.Count];
 
             for (var i = 0; i < points.Count; i++)
             {
                 x[i] = points[i].Lon;
                 y[i] = points[i].Lat;
+                z[i] = points[i].Alt;
             }
 
-            Init(x, y);
+            Init(x, y, z);
         }
 
-        /**
-         * Creates a new Spline2D.
-         *
-         * @param x
-         * @param y
-         */
-        public Spline2D(double[] x, double[] y)
-        {
-            Init(x, y);
-        }
-
-        private void Init(double[] x, double[] y)
+        private void Init(double[] x, double[] y, double[] z)
         {
             if (x.Length != y.Length)
             {
@@ -72,19 +64,8 @@ namespace AnimateBaseStationAdsB
             {
                 var lx = x[i] - x[i - 1];
                 var ly = y[i] - y[i - 1];
-                // If either diff is zero there is no point performing the square root
-                if (0.0 == lx)
-                {
-                    t[i] = Math.Abs(ly);
-                }
-                else if (0.0 == ly)
-                {
-                    t[i] = Math.Abs(lx);
-                }
-                else
-                {
-                    t[i] = Math.Sqrt(lx * lx + ly * ly);
-                }
+                var lz = z[i] - z[i - 1];
+                t[i] = Math.Sqrt(lx * lx + ly * ly + lz * lz);
 
                 _length += t[i];
                 t[i] += t[i - 1];
@@ -99,14 +80,15 @@ namespace AnimateBaseStationAdsB
 
             SplineX = new Spline(t, x);
             SplineY = new Spline(t, y);
+            SplineZ = new Spline(t, z);
         }
 
         /**
          * @param t 0 <= t <= 1
          */
-        public Vector2 GetPoint(double t)
+        public Vector3 GetPoint(double t)
         {
-            return new Vector2((float)SplineX.GetValue(t), (float)SplineY.GetValue(t));
+            return new Vector3((float)SplineX.GetValue(t), (float)SplineY.GetValue(t), (float)SplineZ.GetValue(t));
         }
 
         /**
@@ -114,7 +96,7 @@ namespace AnimateBaseStationAdsB
          */
         public bool CheckValues()
         {
-            return SplineX.CheckValues() && SplineY.CheckValues();
+            return SplineX.CheckValues() && SplineY.CheckValues() && SplineZ.CheckValues();
         }
 
         public double GetDx(double t)

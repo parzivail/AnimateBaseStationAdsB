@@ -61,9 +61,20 @@ namespace AnimateBaseStationAdsB
             return (value - from1) / (to1 - from1) * (to2 - from2) + from2;
         }
 
-        public static Vector2 Remap(this Vector2 value, Vector2 from1, Vector2 to1, Vector2 from2, Vector2 to2)
+        public static Vector3 Remap(this Vector3 value, Vector3 from1, Vector3 to1, Vector3 from2, Vector3 to2)
         {
-            return Vector2.Divide(value - from1, to1 - from1) * (to2 - from2) + from2;
+            return Vector3.Divide(value - from1, to1 - from1) * (to2 - from2) + from2;
+        }
+
+        public static T Work<T>(this T input, Action<T> action)
+        {
+            action.Invoke(input);
+            return input;
+        }
+
+        public static double Round(this double n, int decimalPlaces)
+        {
+            return Math.Round(n, decimalPlaces);
         }
     }
 }

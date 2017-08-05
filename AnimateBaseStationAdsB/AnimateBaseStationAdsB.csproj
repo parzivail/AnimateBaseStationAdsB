@@ -65,7 +65,7 @@
     <Compile Include="Program.cs" />
     <Compile Include="Properties\AssemblyInfo.cs" />
     <Compile Include="Spline.cs" />
-    <Compile Include="Spline2D.cs" />
+    <Compile Include="Spline3D.cs" />
   </ItemGroup>
   <ItemGroup>
     <None Include="App.config" />
@@ -74,6 +74,9 @@
     <None Include="Resources\dina.fnt" />
   </ItemGroup>
   <ItemGroup>
+    <Content Include="map.png">
+      <CopyToOutputDirectory>PreserveNewest</CopyToOutputDirectory>
+    </Content>
     <Content Include="Resources\dina_0.png" />
   </ItemGroup>
   <ItemGroup>
