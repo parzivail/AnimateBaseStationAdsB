@@ -15,7 +15,7 @@ namespace AnimateBaseStationAdsB
 {
     internal class MainWindow : GameWindow
     {
-        public List<PlaneTrack> Planes { get; set; }
+        public PlaneTrack[] Planes { get; set; }
         public int Index { get; set; }
 
         public BitmapFont.BitmapFont Font { get; set; }
@@ -53,7 +53,7 @@ namespace AnimateBaseStationAdsB
 
         private void MainWindow_UpdateFrame(object sender, FrameEventArgs e)
         {
-            CurrentTime = CurrentTime.AddMinutes(5);
+            CurrentTime = CurrentTime.AddMinutes(1);
             if (CurrentTime > EndTime)
                 //Environment.Exit(0);
                 CurrentTime = StartTime;
@@ -70,7 +70,7 @@ namespace AnimateBaseStationAdsB
 
             GL.MatrixMode(MatrixMode.Projection);
             GL.LoadIdentity();
-            GL.Ortho(0, Width, Height, 0, 100, -100);
+            GL.Ortho(0, Width, Height, 0, -1000, 1000);
             GL.MatrixMode(MatrixMode.Modelview);
             GL.LoadIdentity();
         }
@@ -81,13 +81,29 @@ namespace AnimateBaseStationAdsB
                      ClearBufferMask.DepthBufferBit |
                      ClearBufferMask.StencilBufferBit);
 
+
             GL.PushMatrix();
-            GL.Translate(0, 0, 0);
+
+            GL.PushMatrix();
+            GL.Color4(0f, 0f, 0f, 1f);
+            GL.Translate(10, 10, -10);
+            GL.Enable(EnableCap.Texture2D);
+            Font.RenderString(Title);
+            GL.Disable(EnableCap.Texture2D);
+            GL.PopMatrix();
+
+            GL.Translate(Width / 2f, Height / 2f, 0);
+            GL.Rotate(60, 1, 0, 0);
+            GL.Rotate((E.GetEpoch() * 10) % 360, 0, 0, 1);
+            GL.Translate(-Width / 2f, -Height / 2f, 0);
+
+            GL.PushMatrix();
+            //GL.Translate(0, 0, -100);
             GL.Enable(EnableCap.Texture2D);
             GL.Color3(Color.White);
             GL.BindTexture(TextureTarget.Texture2D, _texMap);
             GL.Begin(PrimitiveType.Quads);
-            GL.Color4(1, 1, 1, 0.2f);
+            GL.Color4(1, 1, 1, 1f);
             GL.TexCoord2(0, 0);
             GL.Vertex2(0, 0);
             GL.TexCoord2(1, 0);
@@ -98,48 +114,36 @@ namespace AnimateBaseStationAdsB
             GL.Vertex2(0, Height);
             GL.End();
             GL.Disable(EnableCap.Texture2D);
-
-            GL.Color4(0f, 0f, 1f, 0.06f);
-
-            GL.PushMatrix();
-            GL.Translate(0, 0, -1);
-            foreach (var plane in Planes)
-            {
-                if (plane.Start > CurrentTime)// || plane.End < CurrentTime)
-                    continue;
-
-                var curTimePercent = (CurrentTime - plane.Start).TotalMilliseconds / (plane.End - plane.Start).TotalMilliseconds;
-                //var trans = plane.Spline.GetPoint(curTimePercent);
-                //var trans2 = plane.Spline.GetPoint(curTimePercent + 0.01);
-                //GL.PushMatrix();
-                //GL.Translate(trans.X, trans.Y, 0);
-                //GL.Rotate(Math.Atan2(trans2.Y - trans.Y, trans2.X - trans.X) / Math.PI * 180, 0, 0, 1);
-                //GL.Scale(2, 2, 2);
-                //GL.Begin(PrimitiveType.LineStrip);
-                //GL.Vertex2(0.007f, 0);
-                //GL.Vertex2(0, -0.007f);
-                //GL.Vertex2(0.007f, 0);
-                //GL.Vertex2(0, 0.007f);
-                //GL.End();
-                //GL.PopMatrix();
-                
-                GL.Begin(PrimitiveType.LineStrip);
-                var l = (float)plane.Spline.SplineX.Xx.Length;
-                for (var i = 0; i <= l && i / l < curTimePercent; i++)
-                {
-                    var p = plane.Spline.GetPoint(i / l).Remap(MinVector, MaxVector, Vector3.Zero, WindowSize);
-                    GL.Vertex2(p.X, p.Y);
-                }
-                GL.End();
-            }
             GL.PopMatrix();
 
             GL.PushMatrix();
-            GL.Color4(0f, 0f, 0f, 1f);
-            GL.Translate(10, 10, -10);
-            GL.Enable(EnableCap.Texture2D);
-            Font.RenderString(Title);
-            GL.Disable(EnableCap.Texture2D);
+            foreach (var plane in Planes)
+            {
+                if (plane.Start > CurrentTime || plane.End < CurrentTime)
+                    continue;
+
+                var curTimePercent = (CurrentTime - plane.Start).TotalMilliseconds / (plane.End - plane.Start).TotalMilliseconds;
+
+                GL.Begin(PrimitiveType.LineStrip);
+                var d = 0.3f;
+
+                for (var i = curTimePercent - d; i < curTimePercent; i += d / 10)
+                {
+                    var point = plane.Spline.GetPoint(i);
+
+                    var distance = 1 - (curTimePercent - i) / d;
+                    var altColor = point.Z.Remap(0, WindowSize.Z, 0, 1).Clamp(0, 1);
+                    GL.Color4(0, altColor, 1 - altColor, distance);
+
+                    GL.Vertex3(point);
+                }
+                GL.Vertex3(plane.Spline.GetPoint(curTimePercent));
+                GL.End();
+
+                GL.Begin(PrimitiveType.Points);
+                GL.Vertex3(plane.Spline.GetPoint(curTimePercent));
+                GL.End();
+            }
             GL.PopMatrix();
 
             GL.PopMatrix();
@@ -147,8 +151,8 @@ namespace AnimateBaseStationAdsB
 
             if (!NewData) return;
 
-            SaveScreen($"frames/{Frame++}.png");
-            NewData = false;
+            //SaveScreen($"frames/{Frame++}.png");
+            //NewData = false;
         }
 
         private void MainWindow_Load(object sender, EventArgs e)
@@ -166,42 +170,49 @@ namespace AnimateBaseStationAdsB
             _texMap = pair.Key;
             _mapWidth = pair.Value.Width;
             _mapHeight = pair.Value.Height;
-            
+
             Planes = JsonConvert.DeserializeObject<List<PlaneTrack>>(File.ReadAllText("keyframes.json"))
-                .Where(track => track.Keyframes.Count > 1 && track.Start != DateTime.MinValue)
-                .ToList();
+                .Where(track => track.Keyframes.Count > 1 &&
+                track.Start != DateTime.MinValue)
+                .ToArray();
             var keyframes = Planes.SelectMany(kf => kf.Keyframes).ToArray();
 
             var avgX = keyframes.Select(ll => ll.Lon).Average();
             var avgY = keyframes.Select(ll => ll.Lat).Average();
+            var avgZ = keyframes.Select(ll => ll.Alt).Average();
 
             keyframes = keyframes.Where(ll => Distance(ll.Lon, ll.Lat, avgX, avgY) < 10).ToArray();
 
-            MapMinX = keyframes.Select(ll => ll.Lon).Min().Round(4);
-            MapMaxX = keyframes.Select(ll => ll.Lon).Max().Round(4);
-            MapMaxY = keyframes.Select(ll => ll.Lat).Min().Round(4);
-            MapMinY = keyframes.Select(ll => ll.Lat).Max().Round(4);
-            MapMaxZ = 0;//keyframes.Select(ll => ll.Alt).Min().Round(4);
-            MapMinZ = 0;//keyframes.Select(ll => ll.Alt).Max().Round(4);
+            MapMinX = keyframes.Min(ll => ll.Lon);
+            MapMaxX = keyframes.Max(ll => ll.Lon);
+            MapMaxY = keyframes.Min(ll => ll.Lat);
+            MapMinY = keyframes.Max(ll => ll.Lat);
+            MapMaxZ = keyframes.Max(ll => ll.Alt);
+            MapMinZ = keyframes.Min(ll => ll.Alt);
 
             MinVector = new Vector3((float)MapMinX, (float)MapMinY, (float)MapMinZ);
             MaxVector = new Vector3((float)MapMaxX, (float)MapMaxY, (float)MapMaxZ);
-            
+            MinVector = new Vector3((float)MapMinX, (float)MapMinY, (float)MapMinZ);
+            MaxVector = new Vector3((float)MapMaxX, (float)MapMaxY, (float)MapMaxZ);
+
             StartTime = CurrentTime = Planes.Select(track => track.Start).Min();
             EndTime = Planes.Select(track => track.End).Max();
 
-            var size = 900;
-            var ratio = (MapMinY - MapMaxY) / (MapMaxX - MapMinX);
-            Width = (int) _mapWidth;//(int) (size * ratio);
-            Height = (int) _mapHeight;//size;
+            Width = (int)_mapWidth;
+            Height = (int)_mapHeight;
 
-            WindowSize = new Vector3(Width, Height, 0);
+            WindowSize = new Vector3(Width, Height, 100);
 
-            Console.WriteLine($"Window: {Width}x{Height}, r={ratio}");
+            Console.WriteLine($"Window: {Width}x{Height}");
             Console.WriteLine($"Bounds: lon({MapMaxX},{MapMinX}) lat({MapMinY},{MapMaxY}) alt({MapMinZ},{MapMaxZ})");
 
             foreach (var planeTrack in Planes)
-                planeTrack.CreateSpline();
+                planeTrack.Spline =
+                    new Spline3D(
+                        planeTrack.Keyframes.Select(
+                            ll =>
+                                new Vector3((float)ll.Lon, (float)ll.Lat, (float)ll.Alt).Remap(MinVector, MaxVector,
+                                    Vector3.Zero, WindowSize)).ToList());
 
             Font = BitmapFont.BitmapFont.LoadBinaryFont("dina", Assets.FntDina, Assets.PageDina);
 

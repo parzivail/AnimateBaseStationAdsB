@@ -66,15 +66,22 @@ namespace AnimateBaseStationAdsB
             return Vector3.Divide(value - from1, to1 - from1) * (to2 - from2) + from2;
         }
 
-        public static T Work<T>(this T input, Action<T> action)
+        public static Color Lerp(Color color1, Color color2, double fraction)
         {
-            action.Invoke(input);
-            return input;
+            var r = Lerp(color1.R, color2.R, fraction);
+            var g = Lerp(color1.G, color2.G, fraction);
+            var b = Lerp(color1.B, color2.B, fraction);
+            return Color.FromArgb((int)Math.Round(r), (int)Math.Round(g), (int)Math.Round(b));
         }
 
-        public static double Round(this double n, int decimalPlaces)
+        public static double Lerp(double d1, double d2, double fraction)
         {
-            return Math.Round(n, decimalPlaces);
+            return d1 + (d2 - d1) * fraction;
+        }
+
+        public static float Clamp(this float n, float min, float max)
+        {
+            return Math.Min(Math.Max(n, min), max);
         }
     }
 }

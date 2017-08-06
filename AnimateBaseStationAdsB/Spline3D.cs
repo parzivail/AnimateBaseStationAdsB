@@ -1,46 +1,61 @@
 ﻿using System;
 using System.Collections.Generic;
-using System.Linq;
-using System.Text;
-using System.Threading.Tasks;
 using OpenTK;
 
 namespace AnimateBaseStationAdsB
 {
     public class Spline3D
     {
-        public Spline SplineX;
-        public Spline SplineY;
-        public Spline SplineZ;
+        private Spline _splineX;
+        private Spline _splineY;
+        private Spline _splineZ;
         /**
          * Total length tracing the points on the spline
          */
         private double _length;
 
+        public int Points { get; set; }
+        public IReadOnlyList<Vector3> OriginalPoints { get; set; }
+
         /**
-         * Creates a new Spline2D.
+         * Creates a new Spline3D.
          *
          * @param points
          */
-        public Spline3D(IReadOnlyList<LatLon> points)
+        public Spline3D(IReadOnlyList<Vector3> points)
         {
+            OriginalPoints = points;
+
             var x = new double[points.Count];
             var y = new double[points.Count];
             var z = new double[points.Count];
 
+            Points = points.Count;
+
             for (var i = 0; i < points.Count; i++)
             {
-                x[i] = points[i].Lon;
-                y[i] = points[i].Lat;
-                z[i] = points[i].Alt;
+                x[i] = points[i].X;
+                y[i] = points[i].Y;
+                z[i] = points[i].Z;
             }
 
             Init(x, y, z);
         }
 
+        /**
+         * Creates a new Spline2D.
+         *
+         * @param x
+         * @param y
+         */
+        public Spline3D(double[] x, double[] y, double[] z)
+        {
+            Init(x, y, z);
+        }
+
         private void Init(double[] x, double[] y, double[] z)
         {
-            if (x.Length != y.Length)
+            if (x.Length != y.Length || x.Length != z.Length)
             {
                 throw new ArgumentException("Arrays must have the same length.");
             }
@@ -65,22 +80,23 @@ namespace AnimateBaseStationAdsB
                 var lx = x[i] - x[i - 1];
                 var ly = y[i] - y[i - 1];
                 var lz = z[i] - z[i - 1];
+
                 t[i] = Math.Sqrt(lx * lx + ly * ly + lz * lz);
 
                 _length += t[i];
                 t[i] += t[i - 1];
             }
 
-            for (var i = 1; i < (t.Length) - 1; i++)
+            for (var i = 1; i < t.Length - 1; i++)
             {
                 t[i] = t[i] / _length;
             }
 
-            t[(t.Length) - 1] = 1.0; // end point is always 1.0
+            t[t.Length - 1] = 1.0; // end point is always 1.0
 
-            SplineX = new Spline(t, x);
-            SplineY = new Spline(t, y);
-            SplineZ = new Spline(t, z);
+            _splineX = new Spline(t, x);
+            _splineY = new Spline(t, y);
+            _splineZ = new Spline(t, z);
         }
 
         /**
@@ -88,7 +104,7 @@ namespace AnimateBaseStationAdsB
          */
         public Vector3 GetPoint(double t)
         {
-            return new Vector3((float)SplineX.GetValue(t), (float)SplineY.GetValue(t), (float)SplineZ.GetValue(t));
+            return new Vector3((float)_splineX.GetValue(t), (float)_splineY.GetValue(t), (float)_splineZ.GetValue(t));
         }
 
         /**
@@ -96,32 +112,43 @@ namespace AnimateBaseStationAdsB
          */
         public bool CheckValues()
         {
-            return SplineX.CheckValues() && SplineY.CheckValues() && SplineZ.CheckValues();
+            return _splineX.CheckValues() && _splineY.CheckValues() && _splineZ.CheckValues();
         }
 
         public double GetDx(double t)
         {
-            return SplineX.GetDx(t);
+            return _splineX.GetDx(t);
         }
 
         public double GetDy(double t)
         {
-            return SplineY.GetDx(t);
+            return _splineY.GetDx(t);
+        }
+
+        public double GetDz(double t)
+        {
+            return _splineZ.GetDx(t);
         }
 
         public Spline GetSplineX()
         {
-            return SplineX;
+            return _splineX;
         }
 
         public Spline GetSplineY()
         {
-            return SplineY;
+            return _splineY;
+        }
+
+        public Spline GetSplineZ()
+        {
+            return _splineZ;
         }
 
         public double GetLength()
         {
             return _length;
         }
+
     }
 }

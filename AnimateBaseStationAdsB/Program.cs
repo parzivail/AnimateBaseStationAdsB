@@ -3,6 +3,7 @@ using System.Collections.Generic;
 using System.IO;
 using System.Linq;
 using System.Text;
+using System.Text.RegularExpressions;
 using System.Threading.Tasks;
 using BaseStationDotNet;
 using Newtonsoft.Json;
@@ -16,7 +17,7 @@ namespace AnimateBaseStationAdsB
         {
             //ExportPlaneKeyframes();
 
-            new MainWindow().Run(19);
+            new MainWindow().Run(20);
         }
 
         private static void ExportPlaneKeyframes()
@@ -65,7 +66,6 @@ namespace AnimateBaseStationAdsB
             }
 
             File.WriteAllText("keyframes.json", JsonConvert.SerializeObject(messages));
-            Console.ReadKey();
         }
     }
 
@@ -85,12 +85,6 @@ namespace AnimateBaseStationAdsB
         public DateTime End { get; set; }
         public List<LatLon> Keyframes { get; set; } = new List<LatLon>();
         public Spline3D Spline { get; set; }
-
-        public void CreateSpline()
-        {
-            Spline = new Spline3D(Keyframes);
-        }
-
     }
 
     public class LatLon
