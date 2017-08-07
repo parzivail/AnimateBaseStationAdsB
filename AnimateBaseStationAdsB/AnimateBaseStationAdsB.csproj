@@ -82,5 +82,8 @@
   <ItemGroup>
     <EmbeddedResource Include="Assets.resx" />
   </ItemGroup>
+  <ItemGroup>
+    <Analyzer Include="..\Extreme.Numerics.Net20.dll" />
+  </ItemGroup>
   <Import Project="$(MSBuildToolsPath)\Microsoft.CSharp.targets" />
 </Project>

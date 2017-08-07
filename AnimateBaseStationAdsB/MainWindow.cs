@@ -169,7 +169,7 @@ namespace AnimateBaseStationAdsB
             _texMap = pair.Key;
             _mapWidth = pair.Value.Width;
             _mapHeight = pair.Value.Height;
-
+            
             Planes = JsonConvert.DeserializeObject<List<PlaneTrack>>(File.ReadAllText("keyframes.json"))
                 .Where(track => track.Keyframes.Count > 1 &&
                 track.Start != DateTime.MinValue)

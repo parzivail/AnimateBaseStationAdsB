@@ -1,14 +1,15 @@
 ﻿using System;
 using System.Collections.Generic;
+using Extreme.Mathematics.Curves;
 using OpenTK;
 
 namespace AnimateBaseStationAdsB
 {
     public class Spline3D
     {
-        private Spline _splineX;
-        private Spline _splineY;
-        private Spline _splineZ;
+        private CubicSpline _splineX;
+        private CubicSpline _splineY;
+        private CubicSpline _splineZ;
         /**
          * Total length tracing the points on the spline
          */
@@ -94,9 +95,9 @@ namespace AnimateBaseStationAdsB
 
             t[t.Length - 1] = 1.0; // end point is always 1.0
 
-            _splineX = new Spline(t, x);
-            _splineY = new Spline(t, y);
-            _splineZ = new Spline(t, z);
+            _splineX = new CubicSpline(t, x);
+            _splineY = new CubicSpline(t, y);
+            _splineZ = new CubicSpline(t, z);
         }
 
         /**
@@ -104,45 +105,7 @@ namespace AnimateBaseStationAdsB
          */
         public Vector3 GetPoint(double t)
         {
-            return new Vector3((float)_splineX.GetValue(t), (float)_splineY.GetValue(t), (float)_splineZ.GetValue(t));
-        }
-
-        /**
-         * Used to check the correctness of this spline
-         */
-        public bool CheckValues()
-        {
-            return _splineX.CheckValues() && _splineY.CheckValues() && _splineZ.CheckValues();
-        }
-
-        public double GetDx(double t)
-        {
-            return _splineX.GetDx(t);
-        }
-
-        public double GetDy(double t)
-        {
-            return _splineY.GetDx(t);
-        }
-
-        public double GetDz(double t)
-        {
-            return _splineZ.GetDx(t);
-        }
-
-        public Spline GetSplineX()
-        {
-            return _splineX;
-        }
-
-        public Spline GetSplineY()
-        {
-            return _splineY;
-        }
-
-        public Spline GetSplineZ()
-        {
-            return _splineZ;
+            return new Vector3((float)_splineX.ValueAt(t), (float)_splineY.ValueAt(t), (float)_splineZ.ValueAt(t));
         }
 
         public double GetLength()
