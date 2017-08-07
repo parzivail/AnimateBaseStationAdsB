@@ -2,7 +2,7 @@
 using System.Collections.Generic;
 using OpenTK;
 
-namespace AnimateBaseStationAdsB
+namespace AnimateBaseStationAdsB.Util
 {
     public class Spline3D
     {
