@@ -15,34 +15,75 @@ namespace AnimateBaseStationAdsB
 {
     internal class MainWindow : GameWindow
     {
+        /// <summary>
+        /// All of the plane keyframes
+        /// </summary>
         public PlaneTrack[] Planes { get; set; }
-        public int Index { get; set; }
+        /// <summary>
+        /// Display text
+        /// </summary>
         public string Text { get; set; } = "Init...";
+        /// <summary>
+        /// Current frame, for displaying progress
+        /// </summary>
+        public int Frame { get; set; }
+        /// <summary>
+        /// Current rotation of the map
+        /// </summary>
+        public double Rotation { get; set; }
 
+        /// <summary>
+        /// Onscreen font
+        /// </summary>
         public BitmapFont.BitmapFont Font { get; set; }
 
+        /// <summary>
+        /// Texture GL ID
+        /// </summary>
+        /// <remarks>
+        /// If you're looking to put in your own map, here are the steps:
+        /// 1) Launch the program with your keyframe data, and it'll spit out the window bounds (in min/max lat/lon) in the console
+        /// 2) Obtain a map that is exactly those boundaries, I used TileMill
+        /// 3) Replace map.png
+        /// </remarks>
         private static int _texMap;
 
+        /*
+         * Texture size
+         */
         private static float _mapWidth;
         private static float _mapHeight;
 
-        public Vector3 WindowSize { get; set; }
-
+        /*
+         * Window bounds in lat/lon
+         */
         public double MapMinX;
         public double MapMaxX;
+
         public double MapMinY;
         public double MapMaxY;
+
         public double MapMinZ;
         public double MapMaxZ;
+
+        /*
+         * Window bounds in lat/lon, vector format for easy math
+         */
         public Vector3 MinVector { get; set; }
         public Vector3 MaxVector { get; set; }
+        public Vector3 WindowSize { get; set; }
 
-        public bool NewData { get; set; }
-        public int Frame { get; set; }
-        public double R { get; set; }
-
+        /// <summary>
+        /// Time of the start of the animation
+        /// </summary>
         public DateTime StartTime;
+        /// <summary>
+        /// Time of the end of the animation
+        /// </summary>
         public DateTime EndTime;
+        /// <summary>
+        /// Current playhead position within the animation
+        /// </summary>
         public DateTime CurrentTime;
 
         public MainWindow() : base(960, 540)
@@ -55,23 +96,30 @@ namespace AnimateBaseStationAdsB
 
         private void MainWindow_UpdateFrame(object sender, FrameEventArgs e)
         {
-            CurrentTime = CurrentTime.AddSeconds(30);
+            // How many seconds (or whatever unit you want) pass each frame
+            CurrentTime = CurrentTime.AddSeconds(90);
             if (CurrentTime > EndTime)
                 Environment.Exit(0);
+            /*
+             * Uncomment these lines if you wish to actually save the frames. If you 
+             * just want to view in realtime, this slows it down, so it's fine to omit it.
+             */
             //else
                 //SaveScreen($"frames/{Frame++}.png");
+
 
             Title = $"{Frame} frames";
             Text = "Planes over Georgia\n" +
                     "@parzivail/cnewmanJax2012\n" +
                     $"Time: {CurrentTime}";
-            R += 0.1f;
+            Rotation += 0.1f;
         }
 
         private void MainWindow_Resize(object sender, EventArgs e)
         {
             GL.Viewport(ClientRectangle);
 
+            // Set up the viewport
             GL.MatrixMode(MatrixMode.Projection);
             GL.LoadIdentity();
             GL.Ortho(0, Width, Height, 0, -1000, 1000);
@@ -85,9 +133,15 @@ namespace AnimateBaseStationAdsB
                      ClearBufferMask.DepthBufferBit |
                      ClearBufferMask.StencilBufferBit);
 
+            /*
+             * General note:
+             * There's a lot of OpenGL here
+             * so I'll gloss over the calls.
+             */
 
             GL.PushMatrix();
 
+            // Draw the text
             GL.PushMatrix();
             GL.Color4(0f, 0f, 0f, 1f);
             GL.Translate(10, 10, -10);
@@ -96,13 +150,14 @@ namespace AnimateBaseStationAdsB
             GL.Disable(EnableCap.Texture2D);
             GL.PopMatrix();
 
+            // Rotate the map
             GL.Translate(Width / 2f, Height / 2f, 0);
-            GL.Rotate(60, 1, 0, 0);
-            GL.Rotate(R, 0, 0, 1);
+            GL.Rotate(60, 1, 0, 0); // Tilt towards the camera
+            GL.Rotate(Rotation, 0, 0, 1); // Rotate around the middle
             GL.Translate(-Width / 2f, -Height / 2f, 0);
 
+            // Draw the map
             GL.PushMatrix();
-            //GL.Translate(0, 0, -100);
             GL.Enable(EnableCap.Texture2D);
             GL.Color3(Color.White);
             GL.BindTexture(TextureTarget.Texture2D, _texMap);
@@ -126,14 +181,14 @@ namespace AnimateBaseStationAdsB
                 if (plane.Start > CurrentTime || plane.End < CurrentTime)
                     continue;
 
-                var curTimePercent = (CurrentTime - plane.Start).TotalMilliseconds / (plane.End - plane.Start).TotalMilliseconds;
+                var curTimePercent = Math.Max((CurrentTime - plane.Start).TotalMilliseconds / (plane.End - plane.Start).TotalMilliseconds, double.Epsilon);
 
                 GL.Begin(PrimitiveType.LineStrip);
                 var d = 0.3f;
 
                 for (var i = curTimePercent - d; i < curTimePercent; i += d / 100)
                 {
-                    var point = plane.Spline.GetPoint(i);
+                    var point = plane.Spline.GetPoint(Math.Max(i, double.Epsilon));
 
                     var distance = 1 - (curTimePercent - i) / d;
                     var altColor = point.Z.Remap(0, WindowSize.Z, 0, 1).Clamp(0, 1);

@@ -1,15 +1,14 @@
 ﻿using System;
 using System.Collections.Generic;
-using Extreme.Mathematics.Curves;
 using OpenTK;
 
 namespace AnimateBaseStationAdsB
 {
     public class Spline3D
     {
-        private CubicSpline _splineX;
-        private CubicSpline _splineY;
-        private CubicSpline _splineZ;
+        private Spline _splineX;
+        private Spline _splineY;
+        private Spline _splineZ;
         /**
          * Total length tracing the points on the spline
          */
@@ -95,9 +94,9 @@ namespace AnimateBaseStationAdsB
 
             t[t.Length - 1] = 1.0; // end point is always 1.0
 
-            _splineX = new CubicSpline(t, x);
-            _splineY = new CubicSpline(t, y);
-            _splineZ = new CubicSpline(t, z);
+            _splineX = new Spline(t, x);
+            _splineY = new Spline(t, y);
+            _splineZ = new Spline(t, z);
         }
 
         /**
@@ -105,7 +104,7 @@ namespace AnimateBaseStationAdsB
          */
         public Vector3 GetPoint(double t)
         {
-            return new Vector3((float)_splineX.ValueAt(t), (float)_splineY.ValueAt(t), (float)_splineZ.ValueAt(t));
+            return new Vector3((float)_splineX.GetValue(t), (float)_splineY.GetValue(t), (float)_splineZ.GetValue(t));
         }
 
         public double GetLength()
