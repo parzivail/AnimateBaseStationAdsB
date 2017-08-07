@@ -7,6 +7,10 @@ using OpenTK.Graphics.OpenGL;
 
 namespace AnimateBaseStationAdsB.BitmapFont
 {
+    /// <summary>
+    /// BMFont .FNT and PNG page loader
+    /// </summary>
+    /// <author>parzivail</author>
     public class BitmapFont
     {
         public string Filename { get; set; }
