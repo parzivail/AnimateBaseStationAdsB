@@ -16,8 +16,9 @@ namespace AnimateBaseStationAdsB
         static void Main(string[] args)
         {
             //ExportPlaneKeyframes();
-
-            new MainWindow().Run(20);
+            
+            Directory.CreateDirectory("frames");
+            new MainWindow().Run();
         }
 
         private static void ExportPlaneKeyframes()

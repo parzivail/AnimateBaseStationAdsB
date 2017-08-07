@@ -17,6 +17,7 @@ namespace AnimateBaseStationAdsB
     {
         public PlaneTrack[] Planes { get; set; }
         public int Index { get; set; }
+        public string Text { get; set; } = "Init...";
 
         public BitmapFont.BitmapFont Font { get; set; }
 
@@ -38,6 +39,7 @@ namespace AnimateBaseStationAdsB
 
         public bool NewData { get; set; }
         public int Frame { get; set; }
+        public double R { get; set; }
 
         public DateTime StartTime;
         public DateTime EndTime;
@@ -53,15 +55,17 @@ namespace AnimateBaseStationAdsB
 
         private void MainWindow_UpdateFrame(object sender, FrameEventArgs e)
         {
-            CurrentTime = CurrentTime.AddMinutes(1);
+            CurrentTime = CurrentTime.AddSeconds(30);
             if (CurrentTime > EndTime)
-                //Environment.Exit(0);
-                CurrentTime = StartTime;
-            else
-                NewData = true;
-            Title = "Planes over Georgia\n" +
+                Environment.Exit(0);
+            //else
+                //SaveScreen($"frames/{Frame++}.png");
+
+            Title = $"{Frame} frames";
+            Text = "Planes over Georgia\n" +
                     "@parzivail/cnewmanJax2012\n" +
                     $"Time: {CurrentTime}";
+            R += 0.1f;
         }
 
         private void MainWindow_Resize(object sender, EventArgs e)
@@ -88,13 +92,13 @@ namespace AnimateBaseStationAdsB
             GL.Color4(0f, 0f, 0f, 1f);
             GL.Translate(10, 10, -10);
             GL.Enable(EnableCap.Texture2D);
-            Font.RenderString(Title);
+            Font.RenderString(Text);
             GL.Disable(EnableCap.Texture2D);
             GL.PopMatrix();
 
             GL.Translate(Width / 2f, Height / 2f, 0);
             GL.Rotate(60, 1, 0, 0);
-            GL.Rotate((E.GetEpoch() * 10) % 360, 0, 0, 1);
+            GL.Rotate(R, 0, 0, 1);
             GL.Translate(-Width / 2f, -Height / 2f, 0);
 
             GL.PushMatrix();
@@ -103,7 +107,7 @@ namespace AnimateBaseStationAdsB
             GL.Color3(Color.White);
             GL.BindTexture(TextureTarget.Texture2D, _texMap);
             GL.Begin(PrimitiveType.Quads);
-            GL.Color4(1, 1, 1, 1f);
+            GL.Color4(1, 1, 1, 0.5f);
             GL.TexCoord2(0, 0);
             GL.Vertex2(0, 0);
             GL.TexCoord2(1, 0);
@@ -127,7 +131,7 @@ namespace AnimateBaseStationAdsB
                 GL.Begin(PrimitiveType.LineStrip);
                 var d = 0.3f;
 
-                for (var i = curTimePercent - d; i < curTimePercent; i += d / 10)
+                for (var i = curTimePercent - d; i < curTimePercent; i += d / 100)
                 {
                     var point = plane.Spline.GetPoint(i);
 
@@ -148,11 +152,6 @@ namespace AnimateBaseStationAdsB
 
             GL.PopMatrix();
             SwapBuffers();
-
-            if (!NewData) return;
-
-            //SaveScreen($"frames/{Frame++}.png");
-            //NewData = false;
         }
 
         private void MainWindow_Load(object sender, EventArgs e)
@@ -215,8 +214,6 @@ namespace AnimateBaseStationAdsB
                                     Vector3.Zero, WindowSize)).ToList());
 
             Font = BitmapFont.BitmapFont.LoadBinaryFont("dina", Assets.FntDina, Assets.PageDina);
-
-            Directory.CreateDirectory("frames");
         }
 
         public double Distance(double x1, double y1, double x2, double y2)
