@@ -107,7 +107,7 @@ namespace AnimateBaseStationAdsB
              * 
              * CurrentTime = StartTime;
              */
-            CurrentTime = CurrentTime.AddSeconds(90);
+            CurrentTime = CurrentTime.AddSeconds(10);
             if (CurrentTime > EndTime)
                 Environment.Exit(0);
             //else

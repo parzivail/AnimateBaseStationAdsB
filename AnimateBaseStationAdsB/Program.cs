@@ -47,6 +47,8 @@ namespace AnimateBaseStationAdsB
             if (!File.Exists("planelog.txt"))
                 Lumberjack.Kill("Unable to locate 'planelog.txt'", ErrorCode.FnfPlaneLog);
 
+            var bsmsgs = new List<TelemetryMessage>();
+
             // Load the 'placelog.txt' file handle
             using (var sr = new StreamReader("planelog.txt"))
             {
@@ -55,39 +57,47 @@ namespace AnimateBaseStationAdsB
                 {
                     // Read a line and parse it into a BaseStation message
                     var m = BaseStation.Parse(sr.ReadLine());
+                    bsmsgs.Add(m);
+                }
+            }
 
-                    // Add a new plane to the keyframe list if all of the planes we've seen before aren't this one
-                    if (messages.All(track => track.HexId != m.HexId))
-                        messages.Add(new PlaneTrack(m));
-
-                    switch (m.MessageType)
+            foreach (var m in bsmsgs)
+            {
+                // Add a new plane to the keyframe list if all of the planes we've seen before aren't this one
+                if (messages.All(track => track.HexId != m.HexId))
+                    messages.Add(new PlaneTrack(m)
                     {
-                        case BsTypeCode.NewAircraft:
-                            // Add the start time if we encounter it
-                            messages.First(track => track.HexId == m.HexId).Start = m.DateTimeGenerated;
-                            break;
-                        case BsTypeCode.StatusChange:
-                            switch (((StatusChangeMessage) m).Status)
-                            {
-                                case BsStatus.PositionLost:
-                                case BsStatus.SignalLost:
-                                case BsStatus.Remove:
-                                case BsStatus.Delete:
-                                    // Add the end time if we encounter it
-                                    messages.First(track => track.HexId == m.HexId).End = m.DateTimeGenerated;
-                                    break;
-                            }
-                            break;
-                        case BsTypeCode.TransmissionMessage:
-                            if (m.TransmissionType == TransmissionTypes.AirbornePosition)
-                            {
-                                // If we see a message with a position, keyframe it
-                                var posMsg = (TransmissionMessage) m;
-                                messages.First(track => track.HexId == m.HexId)
-                                    .Keyframes.Add(new LatLon(posMsg.Latitude, posMsg.Longitude, posMsg.Altitude));
-                            }
-                            break;
-                    }
+                        Start = m.DateTimeGenerated,
+                        End = bsmsgs.Last(track => track.HexId == m.HexId).DateTimeGenerated
+                    });
+
+                switch (m.MessageType)
+                {
+                    case BsTypeCode.NewAircraft:
+                        // Add the start time if we encounter it
+                        messages.First(track => track.HexId == m.HexId).Start = m.DateTimeGenerated;
+                        break;
+                    case BsTypeCode.StatusChange:
+                        switch (((StatusChangeMessage)m).Status)
+                        {
+                            case BsStatus.PositionLost:
+                            case BsStatus.SignalLost:
+                            case BsStatus.Remove:
+                            case BsStatus.Delete:
+                                // Add the end time if we encounter it
+                                messages.First(track => track.HexId == m.HexId).End = m.DateTimeGenerated;
+                                break;
+                        }
+                        break;
+                    case BsTypeCode.TransmissionMessage:
+                        if (m.TransmissionType == TransmissionTypes.AirbornePosition)
+                        {
+                            // If we see a message with a position, keyframe it
+                            var posMsg = (TransmissionMessage)m;
+                            messages.First(track => track.HexId == m.HexId)
+                                .Keyframes.Add(new LatLon(posMsg.Latitude, posMsg.Longitude, posMsg.Altitude));
+                        }
+                        break;
                 }
             }
 
