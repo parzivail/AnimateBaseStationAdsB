@@ -6,13 +6,13 @@ namespace AnimateBaseStationAdsB.Util
 {
     public class Spline3D
     {
-        private Spline _splineX;
-        private Spline _splineY;
-        private Spline _splineZ;
+        protected Spline SplineX;
+        protected Spline SplineY;
+        protected Spline SplineZ;
         /**
          * Total length tracing the points on the spline
          */
-        private double _length;
+        protected double Length;
 
         public int Points { get; set; }
         public IReadOnlyList<Vector3> OriginalPoints { get; set; }
@@ -53,7 +53,17 @@ namespace AnimateBaseStationAdsB.Util
             Init(x, y, z);
         }
 
-        private void Init(double[] x, double[] y, double[] z)
+        /**
+         * Creates a new Spline2D without initializing.
+         *
+         * @param x
+         * @param y
+         */
+        public Spline3D()
+        {
+        }
+
+        protected void Init(double[] x, double[] y, double[] z)
         {
             if (x.Length != y.Length || x.Length != z.Length)
             {
@@ -83,20 +93,20 @@ namespace AnimateBaseStationAdsB.Util
 
                 t[i] = Math.Sqrt(lx * lx + ly * ly + lz * lz);
 
-                _length += t[i];
+                Length += t[i];
                 t[i] += t[i - 1];
             }
 
             for (var i = 1; i < t.Length - 1; i++)
             {
-                t[i] = t[i] / _length;
+                t[i] = t[i] / Length;
             }
 
             t[t.Length - 1] = 1.0; // end point is always 1.0
 
-            _splineX = new Spline(t, x);
-            _splineY = new Spline(t, y);
-            _splineZ = new Spline(t, z);
+            SplineX = new Spline(t, x);
+            SplineY = new Spline(t, y);
+            SplineZ = new Spline(t, z);
         }
 
         /**
@@ -104,12 +114,12 @@ namespace AnimateBaseStationAdsB.Util
          */
         public Vector3 GetPoint(double t)
         {
-            return new Vector3((float)_splineX.GetValue(t), (float)_splineY.GetValue(t), (float)_splineZ.GetValue(t));
+            return new Vector3((float)SplineX.GetValue(t), (float)SplineY.GetValue(t), (float)SplineZ.GetValue(t));
         }
 
         public double GetLength()
         {
-            return _length;
+            return Length;
         }
 
     }

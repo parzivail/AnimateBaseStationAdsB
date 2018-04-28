@@ -107,17 +107,17 @@ namespace AnimateBaseStationAdsB
              * 
              * CurrentTime = StartTime;
              */
-            CurrentTime = CurrentTime.AddSeconds(10);
+            CurrentTime = CurrentTime.AddSeconds(15);
             if (CurrentTime > EndTime)
                 Environment.Exit(0);
-            //else
-            //    SaveScreen($"frames/{Frame++}.png");
+//            else
+//                SaveScreen($"frames/{Frame++:D5}.png");
 
             // Rotations/update in degrees
             Rotation += 0.1f;
 
             Title = $"{Frame} frames saved";
-            Text = "Planes over Georgia\n" +
+            Text = "Planes over Jacksonville\n" +
                     "@parzivail/cnewmanJax2012\n" +
                     $"Time: {CurrentTime}";
         }
@@ -190,29 +190,26 @@ namespace AnimateBaseStationAdsB
                     continue;
 
                 // Calculate the plane's distance along it's route at the current playhead position
-                var curTimePercent = Math.Max((CurrentTime - plane.Start).TotalMilliseconds / (plane.End - plane.Start).TotalMilliseconds, double.Epsilon);
+                var curTimePercent = (CurrentTime - plane.Start).TotalMinutes / (plane.End - plane.Start).TotalMinutes;
 
-                GL.Begin(PrimitiveType.LineStrip);
-                var d = 0.3f;
+                GL.PushAttrib(AttribMask.EnableBit);
+                GL.Disable(EnableCap.DepthTest);
+                GL.LineWidth(4);
+                GL.PointSize(6);
+                DrawPlaneWithTrail(curTimePercent, plane, true);
 
-                // Draw the tail in 1/100th increments to create a smooth curve
-                for (var i = curTimePercent - d; i < curTimePercent; i += d / 100)
-                {
-                    var point = plane.Spline.GetPoint(Math.Max(i, double.Epsilon));
-
-                    // Color the segment based on it's distance from the plane and it's altitude
-                    var distance = 1 - (curTimePercent - i) / d;
-                    var altColor = point.Z.Remap(0, WindowSize.Z, 0, 1).Clamp(0, 1);
-                    GL.Color4(0, altColor, 1 - altColor, distance);
-
-                    GL.Vertex3(point);
-                }
-                GL.Vertex3(plane.Spline.GetPoint(curTimePercent));
-                GL.End();
-
-                // Draw the plane dot
-                GL.Begin(PrimitiveType.Points);
-                GL.Vertex3(plane.Spline.GetPoint(curTimePercent));
+                GL.LineWidth(2);
+                GL.PointSize(4);
+                DrawPlaneWithTrail(curTimePercent, plane);
+                GL.PopAttrib();
+                
+                GL.Color4(0f, 0f, 0f, 0.2f);
+                GL.LineWidth(1);
+                var pt = plane.Spline.GetPoint(curTimePercent);
+                GL.Begin(PrimitiveType.Lines);
+                GL.Vertex3(pt);
+                pt.Z = 0;
+                GL.Vertex3(pt);
                 GL.End();
             }
             GL.PopMatrix();
@@ -221,11 +218,40 @@ namespace AnimateBaseStationAdsB
             SwapBuffers();
         }
 
+        private void DrawPlaneWithTrail(double curTimePercent, PlaneTrack plane, bool outline = false)
+        {
+            GL.Begin(PrimitiveType.LineStrip);
+            var d = 0.3f;
+
+            // Draw the tail in 1/100th increments to create a smooth curve
+            for (var i = curTimePercent - d; i < curTimePercent; i += d / 50f)
+            {
+                var point = plane.Spline.GetPoint(Math.Max(i, double.Epsilon));
+
+                // Color the segment based on it's distance from the plane and it's altitude
+                var distance = 1 - (curTimePercent - i) / d;
+                var altColor = point.Z.Remap(0, WindowSize.Z, 0, 1).Clamp(0, 1);
+                //GL.Color4(0, altColor, 1 - altColor, distance);
+                GL.Color4(0, outline ? 0 : 1, 0, distance);
+
+                GL.Vertex3(point);
+            }
+
+            GL.Vertex3(plane.Spline.GetPoint(curTimePercent));
+            GL.End();
+
+            // Draw the plane dot
+            GL.Begin(PrimitiveType.Points);
+            GL.Vertex3(plane.Spline.GetPoint(curTimePercent));
+            GL.End();
+        }
+
         private void MainWindow_Load(object sender, EventArgs e)
         {
             // Setup OpenGL data
             GL.ClearColor(Color.White);
             GL.Enable(EnableCap.DepthTest);
+            GL.Disable(EnableCap.Lighting);
             GL.Hint(HintTarget.LineSmoothHint, HintMode.Nicest);
             GL.Enable(EnableCap.Blend);
             GL.BlendFunc(BlendingFactorSrc.SrcAlpha, BlendingFactorDest.OneMinusSrcAlpha);
@@ -250,15 +276,13 @@ namespace AnimateBaseStationAdsB
             Height = (int)_mapHeight;
 
             // Load the planes into a list from the keyframe file
-            if (!File.Exists("map.png"))
+            if (!File.Exists("keyframes.json"))
                 Lumberjack.Kill("Unable to locate 'keyframes.json'", ErrorCode.FnfKeyframes);
             try
             {
                 Planes = JsonConvert.DeserializeObject<List<PlaneTrack>>(File.ReadAllText("keyframes.json"))
-                    // ...but only the ones that have 2+ keyframes
-                    .Where(track => track.Keyframes.Count > 1 &&
-                                    // ...and have a valid date
-                                    track.Start != DateTime.MinValue)
+                        // ...but only the ones that have 2+ keyframes
+                        .Where(track => track.Keyframes.Count > 1)
                     .ToArray();
             }
             catch (Exception)
@@ -282,14 +306,12 @@ namespace AnimateBaseStationAdsB
             // Get the extremes for map bounding
             MapMinX = keyframes.Min(ll => ll.Lon);
             MapMaxX = keyframes.Max(ll => ll.Lon);
-            MapMaxY = keyframes.Min(ll => ll.Lat);
-            MapMinY = keyframes.Max(ll => ll.Lat);
+            MapMinY = keyframes.Min(ll => ll.Lat);
+            MapMaxY = keyframes.Max(ll => ll.Lat);
             MapMaxZ = keyframes.Max(ll => ll.Alt);
             MapMinZ = keyframes.Min(ll => ll.Alt);
 
             // Create vectors for them, so we can do math quicker
-            MinVector = new Vector3((float)MapMinX, (float)MapMinY, (float)MapMinZ);
-            MaxVector = new Vector3((float)MapMaxX, (float)MapMaxY, (float)MapMaxZ);
             MinVector = new Vector3((float)MapMinX, (float)MapMinY, (float)MapMinZ);
             MaxVector = new Vector3((float)MapMaxX, (float)MapMaxY, (float)MapMaxZ);
 
@@ -304,17 +326,20 @@ namespace AnimateBaseStationAdsB
 
             // Display the bounds
             Lumberjack.Log($"Window: {Width}x{Height}", LogLevel.Warn);
-            Lumberjack.Log($"Bounds: lon({MapMaxX},{MapMinX}) lat({MapMinY},{MapMaxY}) alt({MapMinZ},{MapMaxZ})", LogLevel.Warn);
+            Lumberjack.Log($"Bounds: lon({MapMinX},{MapMaxX}) lat({MapMinY},{MapMaxY}) alt({MapMinZ},{MapMaxZ})", LogLevel.Warn);
+            Lumberjack.Log($"Bounds (TileMill): {MapMinX},{MapMinY},{MapMaxX},{MapMaxY}", LogLevel.Warn);
 
             // Pipe each plane's data into a spline
             foreach (var planeTrack in Planes)
                 planeTrack.Spline =
-                    new Spline3D(
+                    new TimedSpline(
                         planeTrack.Keyframes.Select(
                             ll =>
-                                new Vector3((float)ll.Lon, (float)ll.Lat, (float)ll.Alt).Remap(MinVector, MaxVector,
-                                    Vector3.Zero, WindowSize)).ToList());
+                                new KeyValuePair<DateTime, Vector3>(ll.Time, new Vector3((float)ll.Lon, (float)ll.Lat, (float)ll.Alt).Remap(MinVector, MaxVector,
+                                    Vector3.Zero, WindowSize))).ToList());
             Lumberjack.Log("Calculated splines");
+
+            CurrentTime += TimeSpan.FromHours(10);
         }
 
         /// <summary>
@@ -347,6 +372,51 @@ namespace AnimateBaseStationAdsB
 
                 bmp.Save(filename, ImageFormat.Png);
             }
+        }
+    }
+
+    internal class TimedSpline : Spline3D
+    {
+        public TimedSpline(List<KeyValuePair<DateTime, Vector3>> points)
+        {
+            Init(points);
+        }
+
+        protected void Init(List<KeyValuePair<DateTime, Vector3>> points)
+        {
+            var startTime = points.First().Key;
+            var endTime = points.Last().Key;
+
+            var times = points
+                .Select(p => (p.Key - startTime).TotalMinutes / (endTime - startTime).TotalMinutes)
+                .ToArray();
+            var x = points.Select(p => (double)p.Value.X).ToArray();
+            var y = points.Select(p => (double)p.Value.Y).ToArray();
+            var z = points.Select(p => (double)p.Value.Z).ToArray();
+
+            if (x.Length != y.Length || x.Length != z.Length)
+            {
+                throw new ArgumentException("Arrays must have the same length.");
+            }
+
+            if (x.Length < 2)
+            {
+                throw new ArgumentException("Spline edges must have at least two points.");
+            }
+
+            /*
+          Array representing the relative proportion of the total distance
+          of each point in the line ( i.e. first point is 0.0, end point is
+          1.0, a point halfway on line is 0.5 ).
+         */
+            var t = times;
+
+            t[0] = 0.0; // start point is always 0.0
+            t[t.Length - 1] = 1.0; // end point is always 1.0
+
+            SplineX = new Spline(t, x);
+            SplineY = new Spline(t, y);
+            SplineZ = new Spline(t, z);
         }
     }
 }

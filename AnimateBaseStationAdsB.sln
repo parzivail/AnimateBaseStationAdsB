@@ -5,6 +5,8 @@ VisualStudioVersion = 15.0.26228.4
 MinimumVisualStudioVersion = 10.0.40219.1
 Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "AnimateBaseStationAdsB", "AnimateBaseStationAdsB\AnimateBaseStationAdsB.csproj", "{BEF6B6F9-DDBB-47CD-A110-0A2C009F4AEE}"
 EndProject
+Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "BaseStation", "BaseStation\BaseStation.csproj", "{AFAB523F-D07D-43D3-9952-48CFF349CE15}"
+EndProject
 Global
 	GlobalSection(SolutionConfigurationPlatforms) = preSolution
 		Debug|Any CPU = Debug|Any CPU
@@ -15,8 +17,15 @@ Global
 		{BEF6B6F9-DDBB-47CD-A110-0A2C009F4AEE}.Debug|Any CPU.Build.0 = Debug|Any CPU
 		{BEF6B6F9-DDBB-47CD-A110-0A2C009F4AEE}.Release|Any CPU.ActiveCfg = Release|Any CPU
 		{BEF6B6F9-DDBB-47CD-A110-0A2C009F4AEE}.Release|Any CPU.Build.0 = Release|Any CPU
+		{AFAB523F-D07D-43D3-9952-48CFF349CE15}.Debug|Any CPU.ActiveCfg = Debug|Any CPU
+		{AFAB523F-D07D-43D3-9952-48CFF349CE15}.Debug|Any CPU.Build.0 = Debug|Any CPU
+		{AFAB523F-D07D-43D3-9952-48CFF349CE15}.Release|Any CPU.ActiveCfg = Release|Any CPU
+		{AFAB523F-D07D-43D3-9952-48CFF349CE15}.Release|Any CPU.Build.0 = Release|Any CPU
 	EndGlobalSection
 	GlobalSection(SolutionProperties) = preSolution
 		HideSolutionNode = FALSE
+	EndGlobalSection
+	GlobalSection(ExtensibilityGlobals) = postSolution
+		SolutionGuid = {FDB14222-7069-4C76-BDBD-77F56689BE88}
 	EndGlobalSection
 EndGlobal

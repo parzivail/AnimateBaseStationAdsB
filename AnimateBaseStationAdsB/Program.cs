@@ -41,41 +41,51 @@ namespace AnimateBaseStationAdsB
 
         private static void ExportPlaneKeyframes()
         {
+            // Where we'll store our keyframes while we're processing the BS data
+            var tempMessages = new Dictionary<string, PlaneTrack>();
+
             // Where we'll store our keyframes before we write them out
-            var messages = new List<PlaneTrack>();
+            var compiledMessages = new List<PlaneTrack>();
+
+            var consolidated = 0;
+            
+            // Keep track of all of the planes we've seen so far
 
             if (!File.Exists("planelog.txt"))
                 Lumberjack.Kill("Unable to locate 'planelog.txt'", ErrorCode.FnfPlaneLog);
 
-            var bsmsgs = new List<TelemetryMessage>();
+            Lumberjack.Log("Loading messages");
 
             // Load the 'placelog.txt' file handle
-            using (var sr = new StreamReader("planelog.txt"))
-            {
-                // Read until we hit the end of the file
-                while (!sr.EndOfStream)
-                {
-                    // Read a line and parse it into a BaseStation message
-                    var m = BaseStation.Parse(sr.ReadLine());
-                    bsmsgs.Add(m);
-                }
-            }
+            var lines = File.ReadAllLines("planelog.txt");
+            var bsmsgs = lines.Select(BaseStation.Parse);
+            lines = null;
 
+            Lumberjack.Log("Processing messages");
             foreach (var m in bsmsgs)
             {
                 // Add a new plane to the keyframe list if all of the planes we've seen before aren't this one
-                if (messages.All(track => track.HexId != m.HexId))
-                    messages.Add(new PlaneTrack(m)
+                if (!tempMessages.ContainsKey(m.HexId))
+                    tempMessages.Add(m.HexId, new PlaneTrack(m));
+                else if (tempMessages[m.HexId].Keyframes.Count > 0)
+                {
+                    var thisTime = m.DateTimeGenerated;
+                    var previousTime = tempMessages[m.HexId].Keyframes.Last().Time;
+                    if (thisTime - previousTime > TimeSpan.FromMinutes(1))
                     {
-                        Start = m.DateTimeGenerated,
-                        End = bsmsgs.Last(track => track.HexId == m.HexId).DateTimeGenerated
-                    });
+                        consolidated++;
+                        var oldMessages = tempMessages[m.HexId];
+                        compiledMessages.Add(oldMessages);
+                        tempMessages.Remove(m.HexId);
+                        tempMessages.Add(m.HexId, new PlaneTrack(m));
+                    }
+                }
 
                 switch (m.MessageType)
                 {
                     case BsTypeCode.NewAircraft:
                         // Add the start time if we encounter it
-                        messages.First(track => track.HexId == m.HexId).Start = m.DateTimeGenerated;
+                        tempMessages[m.HexId].Start = m.DateTimeGenerated;
                         break;
                     case BsTypeCode.StatusChange:
                         switch (((StatusChangeMessage)m).Status)
@@ -85,7 +95,7 @@ namespace AnimateBaseStationAdsB
                             case BsStatus.Remove:
                             case BsStatus.Delete:
                                 // Add the end time if we encounter it
-                                messages.First(track => track.HexId == m.HexId).End = m.DateTimeGenerated;
+                                tempMessages[m.HexId].End = m.DateTimeGenerated;
                                 break;
                         }
                         break;
@@ -94,22 +104,41 @@ namespace AnimateBaseStationAdsB
                         {
                             // If we see a message with a position, keyframe it
                             var posMsg = (TransmissionMessage)m;
-                            messages.First(track => track.HexId == m.HexId)
-                                .Keyframes.Add(new LatLon(posMsg.Latitude, posMsg.Longitude, posMsg.Altitude));
+                            tempMessages[m.HexId].Keyframes.Add(new LatLon(m.DateTimeGenerated, posMsg.Latitude, posMsg.Longitude, posMsg.Altitude));
                         }
                         break;
                 }
             }
 
+            foreach (var id in tempMessages.Keys)
+                compiledMessages.Add(tempMessages[id]);
+
+            compiledMessages.RemoveAll(track => track.Keyframes.Count < 2);
+
+            Lumberjack.Log("Computing time constraints");
+            foreach (var msg in compiledMessages)
+            {
+                msg.Start = msg.Keyframes.First().Time;
+                msg.End = msg.Keyframes.Last().Time;
+            }
+
+            Lumberjack.Log($"Consolidated {consolidated} planes");
+
+            Lumberjack.Log("Sorting messages");
+            var allKeyframes = tempMessages.Values.OrderBy(track => track.Start);
+
+            Lumberjack.Log("Saving messages");
             // Write out the keyframe file
             try
             {
-                File.WriteAllText("keyframes.json", JsonConvert.SerializeObject(messages));
+                File.WriteAllText("keyframes.json", JsonConvert.SerializeObject(allKeyframes));
             }
             catch (Exception e)
             {
                 Lumberjack.Kill($"Unable to write 'keyframes.json': {e.Message}", ErrorCode.CouldntWriteKeyframes);
             }
+
+            Lumberjack.Log("Done.");
         }
     }
 }
