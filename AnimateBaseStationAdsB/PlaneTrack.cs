@@ -2,6 +2,7 @@ using System;
 using System.Collections.Generic;
 using AnimateBaseStationAdsB.Util;
 using BaseStationDotNet;
+using Newtonsoft.Json;
 
 namespace AnimateBaseStationAdsB
 {
@@ -20,6 +21,8 @@ namespace AnimateBaseStationAdsB
         public DateTime Start { get; set; }
         public DateTime End { get; set; }
         public List<LatLon> Keyframes { get; set; } = new List<LatLon>();
+
+        [JsonIgnore]
         public Spline3D Spline { get; set; }
     }
 }

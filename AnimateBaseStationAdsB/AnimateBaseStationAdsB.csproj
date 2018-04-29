@@ -56,6 +56,7 @@
     <Compile Include="BitmapFont\FontInfo.cs" />
     <Compile Include="BitmapFont\FontKerning.cs" />
     <Compile Include="BitmapFont\FontPages.cs" />
+    <Compile Include="MathUtil.cs" />
     <Compile Include="TimedSpline.cs" />
     <Compile Include="Util\E.cs" />
     <Compile Include="Util\ErrorCode.cs" />
@@ -78,9 +79,6 @@
     <None Include="Resources\dina.fnt" />
   </ItemGroup>
   <ItemGroup>
-    <Content Include="map.png">
-      <CopyToOutputDirectory>PreserveNewest</CopyToOutputDirectory>
-    </Content>
     <Content Include="Resources\dina_0.png" />
   </ItemGroup>
   <ItemGroup>

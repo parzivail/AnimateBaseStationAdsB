@@ -10,6 +10,7 @@ using AnimateBaseStationAdsB.Util;
 using Newtonsoft.Json;
 using OpenTK;
 using OpenTK.Graphics.OpenGL;
+using OpenTK.Input;
 using PixelFormat = OpenTK.Graphics.OpenGL.PixelFormat;
 
 namespace AnimateBaseStationAdsB
@@ -24,6 +25,7 @@ namespace AnimateBaseStationAdsB
         /// Display text
         /// </summary>
         public string Text { get; set; } = "Init...";
+
         /// <summary>
         /// Current frame, for displaying progress
         /// </summary>
@@ -37,6 +39,10 @@ namespace AnimateBaseStationAdsB
         /// Onscreen font
         /// </summary>
         public BitmapFont.BitmapFont Font { get; set; }
+        /// <summary>
+        /// Keyboard State
+        /// </summary>
+        public KeyboardState KeyboardState { get; private set; }
 
         /// <summary>
         /// Texture GL ID
@@ -54,6 +60,7 @@ namespace AnimateBaseStationAdsB
          */
         private static float _mapWidth;
         private static float _mapHeight;
+        public double MapPitch { get; set; } = 60;
 
         /*
          * Window bounds in lat/lon, vector format for easy math
@@ -74,13 +81,26 @@ namespace AnimateBaseStationAdsB
         /// Current playhead position within the animation
         /// </summary>
         public DateTime CurrentTime;
+        /// <summary>
+        /// Current playhead move speed
+        /// </summary>
+        public double ScrubSpeed { get; set; } = 1;
 
         public VisualizerWindow() : base(960, 540)
         {
             Resize += MainWindow_Resize;
             Load += MainWindow_Load;
+            MouseWheel += OnMouseWheel;
             RenderFrame += MainWindow_RenderFrame;
             UpdateFrame += MainWindow_UpdateFrame;
+        }
+
+        private void OnMouseWheel(object sender, MouseWheelEventArgs args)
+        {
+            if (args.DeltaPrecise < 0)
+                ScrubSpeed /= 2;
+            else
+                ScrubSpeed *= 2;
         }
 
         private void MainWindow_UpdateFrame(object sender, FrameEventArgs e)
@@ -94,9 +114,13 @@ namespace AnimateBaseStationAdsB
              * 
              * CurrentTime = StartTime;
              */
-            CurrentTime = CurrentTime.AddSeconds(15);
+            CurrentTime = CurrentTime.AddSeconds(KeyboardState.IsKeyDown(Key.ShiftRight) ? -ScrubSpeed : ScrubSpeed);
+
             if (CurrentTime > EndTime)
-                Environment.Exit(0);
+                CurrentTime = StartTime;
+            else if (CurrentTime < StartTime)
+                CurrentTime = EndTime;
+                //Environment.Exit(0);
             //            else
             //                SaveScreen($"frames/{Frame++:D5}.png");
 
@@ -105,7 +129,16 @@ namespace AnimateBaseStationAdsB
 
             Title = $"{Frame} frames saved";
             Text = "@parzivail/cnewmanJax2012\n" +
-                    $"Time: {CurrentTime}";
+                    $"Time: {CurrentTime}\n" +
+                    $"Speed: {ScrubSpeed * TargetUpdateFrequency}x";
+
+            KeyboardState = Keyboard.GetState();
+//
+//            var speed = kbd.IsKeyDown(Key.ShiftLeft) ? 10 : 2;
+//            if (kbd.IsKeyDown(Key.Down))
+//                MapPitch += speed * e.Time;
+//            if (kbd.IsKeyDown(Key.Up))
+//                MapPitch -= speed * e.Time;
         }
 
         private void MainWindow_Resize(object sender, EventArgs e)
@@ -163,8 +196,8 @@ namespace AnimateBaseStationAdsB
 
             // Rotate the map
             GL.Translate(Width / 2f, Height / 2f, 0);
-            GL.Rotate(60, 1, 0, 0); // Tilt towards the camera
-            GL.Rotate(PercentDone * 2 * 360, 0, 0, 1); // Rotate around the middle
+            GL.Rotate(MapPitch, 1, 0, 0); // Tilt towards the camera
+            GL.Rotate(PercentDone * 360, 0, 0, 1); // Rotate around the middle
             GL.Translate(-MapSize.X / 2f, -MapSize.Y / 2f, 0);
 
             // Draw the map
@@ -190,6 +223,17 @@ namespace AnimateBaseStationAdsB
             GL.PushMatrix();
             foreach (var plane in Planes)
             {
+                // Draw every plane's path as a transparent line
+//                GL.LineWidth(1);
+//                GL.Begin(PrimitiveType.LineStrip);
+//                for (var i = 0f; i <= 1; i += 0.05f)
+//                {
+//                    var point = plane.Spline.GetPoint(Math.Max(i, double.Epsilon));
+//                    GL.Color4(0f, 0f, 0f, 0.2f);
+//                    GL.Vertex3(point);
+//                }
+//                GL.End();
+
                 // Skip the plane if it's not flying at the time of the playhead
                 if (plane.Start > CurrentTime || plane.End < CurrentTime)
                     continue;
@@ -198,16 +242,19 @@ namespace AnimateBaseStationAdsB
                 var curTimePercent = (CurrentTime - plane.Start).TotalMinutes / (plane.End - plane.Start).TotalMinutes;
 
                 GL.PushAttrib(AttribMask.EnableBit);
+                // Draw trail outline
                 GL.Disable(EnableCap.DepthTest);
                 GL.LineWidth(4);
                 GL.PointSize(6);
                 DrawPlaneWithTrail(curTimePercent, plane, true);
 
+                // Draw trail
                 GL.LineWidth(2);
                 GL.PointSize(4);
                 DrawPlaneWithTrail(curTimePercent, plane);
                 GL.PopAttrib();
 
+                // Draw surface-to-air marker
                 GL.Color4(0f, 0f, 0f, 0.2f);
                 GL.LineWidth(1);
                 var pt = plane.Spline.GetPoint(curTimePercent);
@@ -222,22 +269,31 @@ namespace AnimateBaseStationAdsB
             GL.PopMatrix();
             SwapBuffers();
         }
-
+        
         private void DrawPlaneWithTrail(double curTimePercent, PlaneTrack plane, bool outline = false)
         {
             GL.Begin(PrimitiveType.LineStrip);
-            var d = 0.3f;
+
+            var totalMinutes = (plane.End - plane.Start).TotalMinutes;
+            var d = 1 / totalMinutes;
 
             // Draw the tail in 1/100th increments to create a smooth curve
-            for (var i = curTimePercent - d; i < curTimePercent; i += d / 50f)
+            for (var i = curTimePercent - d; i < curTimePercent; i += d / 60f)
             {
                 var point = plane.Spline.GetPoint(Math.Max(i, double.Epsilon));
-
+                
                 // Color the segment based on it's distance from the plane and it's altitude
                 var distance = 1 - (curTimePercent - i) / d;
-                var altColor = point.Z.Remap(0, MapSize.Z, 0, 1).Clamp(0, 1);
-                //GL.Color4(0, altColor, 1 - altColor, distance);
-                GL.Color4(0, outline ? 0 : 1, 0, distance);
+                var altColor = (point.Z / MapSize.Z).Clamp(0, 1);
+                GL.Color4(0, outline ? 0 : altColor, outline ? 0 : (1 - altColor), distance);
+                //GL.Color4(0, outline ? 0 : 1, 0, distance);
+
+//                var point1 = plane.Spline.GetPoint(Math.Max(i - d / 16f, double.Epsilon));
+//                var angle = Math.Atan2(point1.Y - point.Y, point1.X - point.X) / Math.PI * 180;
+//                if (angle < 0)
+//                    angle += 360;
+//                var c = ColorFromHsv(angle, 1, 1);
+//                GL.Color4(outline ? 0 : c.R / 255f, outline ? 0 : c.G / 255f, outline ? 0 : c.B / 255f, distance);
 
                 GL.Vertex3(point);
             }
@@ -312,13 +368,17 @@ namespace AnimateBaseStationAdsB
             var mapMaxZ = keyframes.Max(ll => ll.Alt);
             var mapMinZ = keyframes.Min(ll => ll.Alt);
 
+            var mapWidthMiles = MathUtil.DistanceTo(mapMinX, mapMinY, mapMaxX, mapMinY);
+            var milesToUnits = _mapWidth / mapWidthMiles;
+            var maxAlt = mapMaxZ * 0.000189394 * milesToUnits; // Feet to miles to units
+
             // Create vectors for them, so we can do math quicker
-            MinVector = new Vector3((float)mapMinX, (float)mapMinY, (float)mapMinZ);
-            MaxVector = new Vector3((float)mapMaxX, (float)mapMaxY, (float)mapMaxZ);
+            MinVector = new Vector3((float)mapMinX, (float)mapMaxY, (float)mapMinZ);
+            MaxVector = new Vector3((float)mapMaxX, (float)mapMinY, (float)mapMaxZ);
 
             // Create a vector that describes the window boundaries
             // The Z component is the maximum interpolated height of the planes that OpenGL should render
-            MapSize = new Vector3(_mapWidth, _mapHeight, 100);
+            MapSize = new Vector3(_mapWidth, _mapHeight, (float) maxAlt);
 
             // Find the extreme time boundaries
             StartTime = CurrentTime = Planes.Select(track => track.Start).Min();
@@ -370,6 +430,34 @@ namespace AnimateBaseStationAdsB
                 bmp.RotateFlip(RotateFlipType.RotateNoneFlipY);
 
                 bmp.Save(filename, ImageFormat.Png);
+            }
+        }
+
+        public static Color ColorFromHsv(double hue, double saturation, double value)
+        {
+            var hi = Convert.ToInt32(Math.Floor(hue / 60)) % 6;
+            var f = hue / 60 - Math.Floor(hue / 60);
+
+            value = value * 255;
+            var v = Convert.ToInt32(value);
+            var p = Convert.ToInt32(value * (1 - saturation));
+            var q = Convert.ToInt32(value * (1 - f * saturation));
+            var t = Convert.ToInt32(value * (1 - (1 - f) * saturation));
+
+            switch (hi)
+            {
+                case 0:
+                    return Color.FromArgb(255, v, t, p);
+                case 1:
+                    return Color.FromArgb(255, q, v, p);
+                case 2:
+                    return Color.FromArgb(255, p, v, t);
+                case 3:
+                    return Color.FromArgb(255, p, q, v);
+                case 4:
+                    return Color.FromArgb(255, t, p, v);
+                default:
+                    return Color.FromArgb(255, v, p, q);
             }
         }
     }
