@@ -4,18 +4,17 @@ using System.Drawing;
 using System.Drawing.Imaging;
 using System.IO;
 using System.Linq;
+using System.Text;
+using System.Threading.Tasks;
 using AnimateBaseStationAdsB.Util;
 using Newtonsoft.Json;
 using OpenTK;
-using OpenTK.Graphics;
 using OpenTK.Graphics.OpenGL;
-using OpenTK.Input;
-using ErrorCode = AnimateBaseStationAdsB.Util.ErrorCode;
 using PixelFormat = OpenTK.Graphics.OpenGL.PixelFormat;
 
 namespace AnimateBaseStationAdsB
 {
-    internal class MainWindow : GameWindow
+    internal class VisualizerWindow : GameWindow
     {
         /// <summary>
         /// All of the plane keyframes
@@ -30,9 +29,9 @@ namespace AnimateBaseStationAdsB
         /// </summary>
         public int Frame { get; set; }
         /// <summary>
-        /// Current rotation of the map
+        /// Percent through the animation
         /// </summary>
-        public double Rotation { get; set; }
+        public double PercentDone { get; set; }
 
         /// <summary>
         /// Onscreen font
@@ -57,23 +56,11 @@ namespace AnimateBaseStationAdsB
         private static float _mapHeight;
 
         /*
-         * Window bounds in lat/lon
-         */
-        public double MapMinX;
-        public double MapMaxX;
-
-        public double MapMinY;
-        public double MapMaxY;
-
-        public double MapMinZ;
-        public double MapMaxZ;
-
-        /*
          * Window bounds in lat/lon, vector format for easy math
          */
         public Vector3 MinVector { get; set; }
         public Vector3 MaxVector { get; set; }
-        public Vector3 WindowSize { get; set; }
+        public Vector3 MapSize { get; set; }
 
         /// <summary>
         /// Time of the start of the animation
@@ -88,7 +75,7 @@ namespace AnimateBaseStationAdsB
         /// </summary>
         public DateTime CurrentTime;
 
-        public MainWindow() : base(960, 540)
+        public VisualizerWindow() : base(960, 540)
         {
             Resize += MainWindow_Resize;
             Load += MainWindow_Load;
@@ -110,15 +97,14 @@ namespace AnimateBaseStationAdsB
             CurrentTime = CurrentTime.AddSeconds(15);
             if (CurrentTime > EndTime)
                 Environment.Exit(0);
-//            else
-//                SaveScreen($"frames/{Frame++:D5}.png");
+            //            else
+            //                SaveScreen($"frames/{Frame++:D5}.png");
 
             // Rotations/update in degrees
-            Rotation += 0.1f;
+            PercentDone = (CurrentTime - StartTime).TotalHours / (EndTime - StartTime).TotalHours;
 
             Title = $"{Frame} frames saved";
-            Text = "Planes over Jacksonville\n" +
-                    "@parzivail/cnewmanJax2012\n" +
+            Text = "@parzivail/cnewmanJax2012\n" +
                     $"Time: {CurrentTime}";
         }
 
@@ -148,10 +134,28 @@ namespace AnimateBaseStationAdsB
 
             GL.PushMatrix();
 
-            // Draw the text
+            // Draw the into overlay
             GL.PushMatrix();
             GL.Color4(0f, 0f, 0f, 1f);
-            GL.Translate(10, 10, -10);
+
+            GL.Translate(16, 0, -10);
+
+            GL.Color4(0f, 0f, 0f, 1f);
+            GL.LineWidth(1);
+            GL.PointSize(5);
+            GL.Disable(EnableCap.LineSmooth);
+            // Draw the scrubber indicator
+            Fx.D2.DrawLine(3, 2, 3, 13);
+            Fx.D2.DrawLine(183, 2, 183, 13);
+            Fx.D2.DrawLine(3, 7, 183, 7);
+            
+            GL.Begin(PrimitiveType.Points);
+            GL.Vertex2((float)(3 + 180 * PercentDone), 8);
+            GL.End();
+
+            GL.Enable(EnableCap.LineSmooth);
+
+            GL.Translate(0, 16, 0);
             GL.Enable(EnableCap.Texture2D);
             Font.RenderString(Text);
             GL.Disable(EnableCap.Texture2D);
@@ -160,8 +164,8 @@ namespace AnimateBaseStationAdsB
             // Rotate the map
             GL.Translate(Width / 2f, Height / 2f, 0);
             GL.Rotate(60, 1, 0, 0); // Tilt towards the camera
-            GL.Rotate(Rotation, 0, 0, 1); // Rotate around the middle
-            GL.Translate(-Width / 2f, -Height / 2f, 0);
+            GL.Rotate(PercentDone * 2 * 360, 0, 0, 1); // Rotate around the middle
+            GL.Translate(-MapSize.X / 2f, -MapSize.Y / 2f, 0);
 
             // Draw the map
             GL.PushMatrix();
@@ -174,11 +178,11 @@ namespace AnimateBaseStationAdsB
             GL.TexCoord2(0, 0);
             GL.Vertex2(0, 0);
             GL.TexCoord2(1, 0);
-            GL.Vertex2(Width, 0);
+            GL.Vertex2(MapSize.X, 0);
             GL.TexCoord2(1, 1);
-            GL.Vertex2(Width, Height);
+            GL.Vertex2(MapSize.X, MapSize.Y);
             GL.TexCoord2(0, 1);
-            GL.Vertex2(0, Height);
+            GL.Vertex2(0, MapSize.Y);
             GL.End();
             GL.PopAttrib();
             GL.PopMatrix();
@@ -203,7 +207,7 @@ namespace AnimateBaseStationAdsB
                 GL.PointSize(4);
                 DrawPlaneWithTrail(curTimePercent, plane);
                 GL.PopAttrib();
-                
+
                 GL.Color4(0f, 0f, 0f, 0.2f);
                 GL.LineWidth(1);
                 var pt = plane.Spline.GetPoint(curTimePercent);
@@ -231,7 +235,7 @@ namespace AnimateBaseStationAdsB
 
                 // Color the segment based on it's distance from the plane and it's altitude
                 var distance = 1 - (curTimePercent - i) / d;
-                var altColor = point.Z.Remap(0, WindowSize.Z, 0, 1).Clamp(0, 1);
+                var altColor = point.Z.Remap(0, MapSize.Z, 0, 1).Clamp(0, 1);
                 //GL.Color4(0, altColor, 1 - altColor, distance);
                 GL.Color4(0, outline ? 0 : 1, 0, distance);
 
@@ -267,20 +271,21 @@ namespace AnimateBaseStationAdsB
 
             // Load the map
             if (!File.Exists("map.png"))
-                Lumberjack.Kill("Unable to locate 'map.png'", ErrorCode.FnfMap);
+                Lumberjack.Kill("Unable to locate 'map.png'", Util.ErrorCode.FnfMap);
             var pair = new Bitmap("map.png").LoadGlTexture();
             _texMap = pair.Key;
             _mapWidth = pair.Value.Width;
             _mapHeight = pair.Value.Height;
             Lumberjack.Log("Loaded textures");
 
-            // Set the window size according to the map size
-            Width = (int)_mapWidth;
+            // Set the window size according to the map size and
+            // make the map fit the whole diagonal of the map while rotating
+            Width = (int)Math.Sqrt(Math.Pow(_mapWidth, 2) + Math.Pow(_mapHeight, 2));
             Height = (int)_mapHeight;
 
             // Load the planes into a list from the keyframe file
             if (!File.Exists("keyframes.json"))
-                Lumberjack.Kill("Unable to locate 'keyframes.json'", ErrorCode.FnfKeyframes);
+                Lumberjack.Kill("Unable to locate 'keyframes.json'", Util.ErrorCode.FnfKeyframes);
             try
             {
                 Planes = JsonConvert.DeserializeObject<List<PlaneTrack>>(File.ReadAllText("keyframes.json"))
@@ -290,37 +295,30 @@ namespace AnimateBaseStationAdsB
             }
             catch (Exception)
             {
-                Lumberjack.Kill("The keyframes were not in the correct format", ErrorCode.InvalidKeyframes);
+                Lumberjack.Kill("The keyframes were not in the correct format", Util.ErrorCode.InvalidKeyframes);
             }
             Lumberjack.Log($"Loaded {Planes.Length} plane{(Planes.Length == 1 ? "" : "s")}");
 
             // Get just the keyframes so we can do some math
             var keyframes = Planes.SelectMany(kf => kf.Keyframes).ToArray();
 
-            // Calculate the average plane position so we can cull outliers
-            var avgX = keyframes.Select(ll => ll.Lon).Average();
-            var avgY = keyframes.Select(ll => ll.Lat).Average();
-            var avgZ = keyframes.Select(ll => ll.Alt).Average();
-            Lumberjack.Log("Averaged keyframe data");
-
-            // Only keep planes who are <10 degrees from the average lat/lon 
-            keyframes = keyframes.Where(ll => Distance(ll.Lon, ll.Lat, avgX, avgY) < 10).ToArray();
-
             // Get the extremes for map bounding
-            MapMinX = keyframes.Min(ll => ll.Lon);
-            MapMaxX = keyframes.Max(ll => ll.Lon);
-            MapMinY = keyframes.Min(ll => ll.Lat);
-            MapMaxY = keyframes.Max(ll => ll.Lat);
-            MapMaxZ = keyframes.Max(ll => ll.Alt);
-            MapMinZ = keyframes.Min(ll => ll.Alt);
+            var mapMinX = keyframes.Min(ll => ll.Lon);
+            var mapMaxX = keyframes.Max(ll => ll.Lon);
+
+            var mapMinY = keyframes.Min(ll => ll.Lat);
+            var mapMaxY = keyframes.Max(ll => ll.Lat);
+
+            var mapMaxZ = keyframes.Max(ll => ll.Alt);
+            var mapMinZ = keyframes.Min(ll => ll.Alt);
 
             // Create vectors for them, so we can do math quicker
-            MinVector = new Vector3((float)MapMinX, (float)MapMinY, (float)MapMinZ);
-            MaxVector = new Vector3((float)MapMaxX, (float)MapMaxY, (float)MapMaxZ);
+            MinVector = new Vector3((float)mapMinX, (float)mapMinY, (float)mapMinZ);
+            MaxVector = new Vector3((float)mapMaxX, (float)mapMaxY, (float)mapMaxZ);
 
             // Create a vector that describes the window boundaries
             // The Z component is the maximum interpolated height of the planes that OpenGL should render
-            WindowSize = new Vector3(Width, Height, 100);
+            MapSize = new Vector3(_mapWidth, _mapHeight, 100);
 
             // Find the extreme time boundaries
             StartTime = CurrentTime = Planes.Select(track => track.Start).Min();
@@ -329,8 +327,8 @@ namespace AnimateBaseStationAdsB
 
             // Display the bounds
             Lumberjack.Log($"Window: {Width}x{Height}", LogLevel.Warn);
-            Lumberjack.Log($"Bounds: lon({MapMinX},{MapMaxX}) lat({MapMinY},{MapMaxY}) alt({MapMinZ},{MapMaxZ})", LogLevel.Warn);
-            Lumberjack.Log($"Bounds (TileMill): {MapMinX},{MapMinY},{MapMaxX},{MapMaxY}", LogLevel.Warn);
+            Lumberjack.Log($"Bounds: lon({mapMinX},{mapMaxX}) lat({mapMinY},{mapMaxY}) alt({mapMinZ},{mapMaxZ})", LogLevel.Warn);
+            Lumberjack.Log($"Bounds (TileMill): {mapMinX},{mapMinY},{mapMaxX},{mapMaxY}", LogLevel.Warn);
 
             // Pipe each plane's data into a spline
             foreach (var planeTrack in Planes)
@@ -339,10 +337,8 @@ namespace AnimateBaseStationAdsB
                         planeTrack.Keyframes.Select(
                             ll =>
                                 new KeyValuePair<DateTime, Vector3>(ll.Time, new Vector3((float)ll.Lon, (float)ll.Lat, (float)ll.Alt).Remap(MinVector, MaxVector,
-                                    Vector3.Zero, WindowSize))).ToList());
+                                    Vector3.Zero, MapSize))).ToList());
             Lumberjack.Log("Calculated splines");
-
-            CurrentTime += TimeSpan.FromHours(10);
         }
 
         /// <summary>

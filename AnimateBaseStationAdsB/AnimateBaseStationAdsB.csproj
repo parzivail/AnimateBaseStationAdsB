@@ -56,9 +56,11 @@
     <Compile Include="BitmapFont\FontInfo.cs" />
     <Compile Include="BitmapFont\FontKerning.cs" />
     <Compile Include="BitmapFont\FontPages.cs" />
+    <Compile Include="TimedSpline.cs" />
     <Compile Include="Util\E.cs" />
     <Compile Include="Util\ErrorCode.cs" />
     <Compile Include="LatLon.cs" />
+    <Compile Include="Util\Fx.cs" />
     <Compile Include="Util\LogLevel.cs" />
     <Compile Include="Util\Lumberjack.cs" />
     <Compile Include="MainWindow.cs" />
@@ -67,6 +69,7 @@
     <Compile Include="Properties\AssemblyInfo.cs" />
     <Compile Include="Util\Spline.cs" />
     <Compile Include="Util\Spline3D.cs" />
+    <Compile Include="VisualizerWindow.cs" />
   </ItemGroup>
   <ItemGroup>
     <None Include="App.config" />

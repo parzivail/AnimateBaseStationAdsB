@@ -35,7 +35,7 @@ namespace AnimateBaseStationAdsB
                  * More about that in MainWindow.cs
                  */
                 Directory.CreateDirectory("frames");
-                new MainWindow().Run(20, 60); // 20 updates/second, 60 FPS (+ vsync)
+                new VisualizerWindow().Run(20, 60); // 20 updates/second, 60 FPS (+ vsync)
             }
         }
 
